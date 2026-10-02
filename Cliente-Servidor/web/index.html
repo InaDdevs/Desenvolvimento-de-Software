@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SiCA</title>
+<style>
+  :root {
+    --fundo: #f6f7f9; --cartao: #ffffff; --texto: #1c2430; --suave: #647084;
+    --borda: #dde1e8; --destaque: #2563eb; --destaque-texto: #ffffff;
+    --ok: #15803d; --erro: #b91c1c; --linha: #f0f2f5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fundo: #12161c; --cartao: #1b212a; --texto: #e6eaf0; --suave: #93a0b4;
+      --borda: #2c3542; --destaque: #5b8def; --destaque-texto: #0b1220;
+      --ok: #4ade80; --erro: #f87171; --linha: #232b36;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 16px 48px; background: var(--fundo); color: var(--texto);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; }
+  .sub { color: var(--suave); margin: 0 0 20px; }
+  .cartao {
+    background: var(--cartao); border: 1px solid var(--borda); border-radius: 10px;
+    padding: 16px; margin-bottom: 16px;
+  }
+  label.zona {
+    display: block; text-align: center; padding: 28px 16px; cursor: pointer;
+    border: 2px dashed var(--borda); border-radius: 10px; color: var(--suave);
+  }
+  label.zona:hover, label.zona.sobre, label.zona:focus-within {
+    border-color: var(--destaque); color: var(--texto);
+  }
+  label.zona strong { color: var(--destaque); }
+  input[type=file] { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  progress { width: 100%; height: 10px; margin-top: 12px; accent-color: var(--destaque); }
+  #aviso { min-height: 1.5em; margin: 12px 0 0; font-size: .95rem; }
+  #aviso.ok { color: var(--ok); } #aviso.erro { color: var(--erro); }
+  .topo { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .topo h2 { font-size: 1.05rem; margin: 0; }
+  button {
+    font: inherit; cursor: pointer; padding: 6px 12px; border-radius: 8px;
+    border: 1px solid var(--borda); background: var(--cartao); color: var(--texto);
+  }
+  button:hover { border-color: var(--destaque); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 9px 6px; border-bottom: 1px solid var(--linha); }
+  th { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--suave); }
+  td.num, th.num { text-align: right; white-space: nowrap; }
+  td.nome { word-break: break-all; }
+  td a {
+    color: var(--destaque-texto); background: var(--destaque); text-decoration: none;
+    padding: 4px 10px; border-radius: 6px; font-size: .9rem;
+  }
+  .vazio { color: var(--suave); text-align: center; padding: 20px 0 8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>SiCA</h1>
+  <p class="sub">Sistema de Compartilhamento de Arquivos</p>
+
+  <section class="cartao">
+    <label class="zona" id="zona">
+      <input type="file" id="entrada" multiple>
+      Arraste arquivos até aqui ou <strong>clique para escolher</strong>
+    </label>
+    <progress id="progresso" max="100" value="0" hidden></progress>
+    <p id="aviso" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="cartao">
+    <div class="topo">
+      <h2>Arquivos no servidor</h2>
+      <button id="atualizar" type="button">Atualizar</button>
+    </div>
+    <table>
+      <thead><tr><th>Nome</th><th class="num">Tamanho</th><th></th></tr></thead>
+      <tbody id="lista"></tbody>
+    </table>
+    <p class="vazio" id="vazio" hidden>Nenhum arquivo no servidor.</p>
+  </section>
+</main>
+
+<script>
+'use strict';
+const API = '/api/arquivos';
+const $ = id => document.getElementById(id);
+let arquivos = [];
+
+function tamanhoLegivel(bytes) {
+  const unidades = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let i = 0;
+  while (bytes >= 1024 && i < unidades.length - 1) { bytes /= 1024; i++; }
+  return (i === 0 ? bytes : bytes.toFixed(1)) + ' ' + unidades[i];
+}
+
+function avisar(texto, tipo) {
+  const el = $('aviso');
+  el.textContent = texto;
+  el.className = tipo || '';
+}
+
+// Os nomes vêm de outros usuários: são inseridos sempre com textContent, nunca como HTML.
+function desenhar() {
+  const corpo = $('lista');
+  corpo.replaceChildren();
+  $('vazio').hidden = arquivos.length > 0;
+  for (const arq of arquivos) {
+    const tr = document.createElement('tr');
+    const nome = document.createElement('td');
+    nome.className = 'nome';
+    nome.textContent = arq.nome;
+    const tam = document.createElement('td');
+    tam.className = 'num';
+    tam.textContent = tamanhoLegivel(arq.tamanho);
+    const acao = document.createElement('td');
+    acao.className = 'num';
+    const link = document.createElement('a');
+    link.href = API + '/' + encodeURIComponent(arq.nome);
+    link.textContent = 'Baixar';
+    acao.append(link);
+    tr.append(nome, tam, acao);
+    corpo.append(tr);
+  }
+}
+
+async function carregar() {
+  try {
+    const resp = await fetch(API, { cache: 'no-store' });
+    const dados = await resp.json();
+    if (!resp.ok) throw new Error(dados.erro || resp.statusText);
+    arquivos = dados;
+    desenhar();
+  } catch (e) {
+    avisar('Não foi possível listar os arquivos: ' + e.message, 'erro');
+  }
+}
+
+// XMLHttpRequest (e não fetch) porque só ele informa o progresso do envio.
+// O corpo é o próprio arquivo, e o navegador acrescenta o Content-Length sozinho.
+function enviarUm(arquivo) {
+  return new Promise(resolve => {
+    const barra = $('progresso');
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', API + '/' + encodeURIComponent(arquivo.name));
+    xhr.upload.onprogress = e => {
+      if (e.lengthComputable) barra.value = (e.loaded / e.total) * 100;
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) return resolve(true);
+      let motivo = 'erro ' + xhr.status;
+      try { motivo = JSON.parse(xhr.responseText).erro; } catch (_) {}
+      avisar('Falha ao enviar "' + arquivo.name + '": ' + motivo, 'erro');
+      resolve(false);
+    };
+    xhr.onerror = () => {
+      avisar('Falha de rede ao enviar "' + arquivo.name + '".', 'erro');
+      resolve(false);
+    };
+    barra.value = 0;
+    xhr.send(arquivo);
+  });
+}
+
+async function enviar(lista) {
+  const barra = $('progresso');
+  let enviados = 0;
+  barra.hidden = false;
+  for (const arquivo of lista) {
+    if (arquivos.some(a => a.nome === arquivo.name) &&
+        !confirm('"' + arquivo.name + '" já existe no servidor. Substituir?')) continue;
+    avisar('Enviando "' + arquivo.name + '"…');
+    if (await enviarUm(arquivo)) enviados++;
+    else break; // mantém a mensagem de erro na tela
+  }
+  barra.hidden = true;
+  if (enviados === lista.length) avisar(enviados + ' arquivo(s) enviado(s).', 'ok');
+  await carregar();
+}
+
+$('entrada').addEventListener('change', e => {
+  enviar(Array.from(e.target.files));
+  e.target.value = ''; // permite escolher o mesmo arquivo de novo
+});
+$('atualizar').addEventListener('click', carregar);
+
+const zona = $('zona');
+zona.addEventListener('dragover', e => { e.preventDefault(); zona.classList.add('sobre'); });
+zona.addEventListener('dragleave', () => zona.classList.remove('sobre'));
+zona.addEventListener('drop', e => {
+  e.preventDefault();
+  zona.classList.remove('sobre');
+  enviar(Array.from(e.dataTransfer.files));
+});
+
+carregar();
+</script>
+</body>
+</html>
