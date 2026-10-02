@@ -465,6 +465,3 @@ uma imagem) pela área de upload, listagem com tamanhos e download concluído, c
 seção [Interface web](#4-interface-web). Em teste automatizado com Chrome sem interface, a página
 exibiu a mensagem de erro correta com o servidor SiCA parado, e um arquivo chamado
 `"><img src=x onerror=...>` apareceu como texto, sem executar código.
-
-**Não testado:** uso entre duas máquinas diferentes (todos os testes foram em `localhost`) e navegadores
-além do Chrome.
