@@ -87,7 +87,9 @@ public class Cliente {
                 }
             }
         } catch (IOException e) {
-            System.err.println("Conexão perdida: " + e.getMessage());
+            // Quando o servidor fecha a conexão, o EOFException vem sem mensagem (null).
+            String motivo = e.getMessage() != null ? e.getMessage() : "o servidor encerrou a conexão";
+            System.err.println("Conexão perdida: " + motivo);
         }
     }
 
