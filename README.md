@@ -127,13 +127,6 @@ navegador não consiga disparar uploads para cá sem permissão (CORS).
 - **Página web:** os nomes dos arquivos são inseridos na página como texto (`textContent`), nunca como
   HTML, então um arquivo chamado `"><img onerror=...>` não executa código no navegador de ninguém.
 
-### Limitações (fora do escopo do exercício)
-
-Não há autenticação nem criptografia (os dados trafegam em texto claro, inclusive no HTTP da interface
-web), limite de tamanho/cota de disco, nem proteção contra dois uploads simultâneos do mesmo nome
-(vence o último a terminar). Quem alcançar a porta do servidor ou da interface web pode listar,
-baixar e enviar arquivos.
-
 ## Testes realizados
 
 **Servidor + cliente de console:** arquivo binário aleatório de 5 MB, arquivo vazio e nome com acentos
